@@ -23,17 +23,17 @@ module Capistrano
                        end
           end
 
-          def last_staging_tag()
-            last_tag_matching('staging-*')
+          def last_sandbox_tag()
+            last_tag_matching('sandbox-*')
           end
 
-          def next_staging_tag
+          def next_sandbox_tag
             hwhen   = Date.today.to_s
             who = `whoami`.chomp.to_url
             what = Capistrano::CLI.ui.ask("What does this release introduce? (this will be normalized and used in the tag for this release) ").to_url
 
-            last_staging_tag = last_tag_matching("staging-#{hwhen}-*")
-            new_tag_serial = if last_staging_tag && last_staging_tag =~ /staging-[0-9]{4}-[0-9]{2}-[0-9]{2}\-([0-9]*)/
+            last_sandbox_tag = last_tag_matching("sandbox-#{hwhen}-*")
+            new_tag_serial = if last_sandbox_tag && last_sandbox_tag =~ /sandbox-[0-9]{4}-[0-9]{2}-[0-9]{2}\-([0-9]*)/
                                $1.to_i + 1
                              else
                                1
@@ -86,12 +86,12 @@ Please make sure you have pulled and pushed all code before deploying:
             end
           end
 
-          desc "Show log between most recent staging tag (or given tag=XXX) and last production release."
+          desc "Show log between most recent sandbox tag (or given tag=XXX) and last production release."
           task :commit_log do
             from_tag = if stage == :production
                          last_production_tag
-                       elsif stage == :staging
-                         last_staging_tag
+                       elsif stage == :sandbox
+                         last_sandbox_tag
                        else
                          abort "Unsupported stage #{stage}"
                        end
@@ -101,8 +101,8 @@ Please make sure you have pulled and pushed all code before deploying:
             to_tag ||= begin 
                          puts "Calculating 'end' tag for :commit_log for '#{stage}'"
                          to_tag = if stage == :production
-                                    last_staging_tag
-                                  elsif stage == :staging
+                                    last_sandbox_tag
+                                  elsif stage == :sandbox
                                     'master'
                                   else
                                     abort "Unsupported stage #{stage}"
@@ -124,37 +124,37 @@ Please make sure you have pulled and pushed all code before deploying:
             system command
           end
 
-          desc "Mark the current code as a staging/qa release"
-          task :tag_staging do
+          desc "Mark the current code as a sandbox/qa release"
+          task :tag_sandbox do
             current_sha = `git log --pretty=format:%H HEAD -1`
-            last_staging_tag_sha = if last_staging_tag
-                                     `git log --pretty=format:%H #{last_staging_tag} -1`
+            last_sandbox_tag_sha = if last_sandbox_tag
+                                     `git log --pretty=format:%H #{last_sandbox_tag} -1`
                                    end
 
-            if last_staging_tag_sha == current_sha
-              puts "Not re-tagging staging because latest tag (#{last_staging_tag}) already points to HEAD"
-              new_staging_tag = last_staging_tag
+            if last_sandbox_tag_sha == current_sha
+              puts "Not re-tagging sandbox because latest tag (#{last_sandbox_tag}) already points to HEAD"
+              new_sandbox_tag = last_sandbox_tag
             else
-              new_staging_tag = next_staging_tag
-              puts "Tagging current branch for deployment to staging as '#{new_staging_tag}'"
-              system "git tag -a -m 'tagging current code for deployment to staging' #{new_staging_tag}"
+              new_sandbox_tag = next_sandbox_tag
+              puts "Tagging current branch for deployment to sandbox as '#{new_sandbox_tag}'"
+              system "git tag -a -m 'tagging current code for deployment to sandbox' #{new_sandbox_tag}"
             end
 
-            set :branch, new_staging_tag
+            set :branch, new_sandbox_tag
           end
 
-          desc "Push the approved tag to production. Pass in tag to deploy with '-s tag=staging-YYYY-MM-DD-X-feature'."
+          desc "Push the approved tag to production. Pass in tag to deploy with '-s tag=sandbox-YYYY-MM-DD-X-feature'."
           task :tag_production do
-            promote_to_production_tag = capistrano_configuration[:tag] || last_staging_tag
+            promote_to_production_tag = capistrano_configuration[:tag] || last_sandbox_tag
 
-            unless promote_to_production_tag && promote_to_production_tag =~ /staging-.*/
-              abort "Couldn't find a staging tag to deploy; use '-s tag=staging-YYYY-MM-DD.X'"
+            unless promote_to_production_tag && promote_to_production_tag =~ /sandbox-.*/
+              abort "Couldn't find a sandbox tag to deploy; use '-s tag=sandbox-YYYY-MM-DD.X'"
             end
             unless last_tag_matching(promote_to_production_tag)
-              abort "Staging tag #{promote_to_production_tag} does not exist."
+              abort "Sandbox tag #{promote_to_production_tag} does not exist."
             end
 
-            promote_to_production_tag =~ /^staging-(.*)$/
+            promote_to_production_tag =~ /^sandbox-(.*)$/
             new_production_tag = "production-#{$1}"
 
             if new_production_tag == last_production_tag
@@ -163,13 +163,13 @@ Please make sure you have pulled and pushed all code before deploying:
 
              exit(1) unless really_deploy =~ /^[Yy]$/
             else
-              puts "Preparing to promote staging tag '#{promote_to_production_tag}' to '#{new_production_tag}'"
+              puts "Preparing to promote sandbox tag '#{promote_to_production_tag}' to '#{new_production_tag}'"
               unless capistrano_configuration[:tag]
                 really_deploy = Capistrano::CLI.ui.ask("Do you really want to deploy #{new_production_tag}? [y/N]").to_url
 
                 exit(1) unless really_deploy =~ /^[Yy]$/
               end
-              puts "Promoting staging tag #{promote_to_production_tag} to production as '#{new_production_tag}'"
+              puts "Promoting sandbox tag #{promote_to_production_tag} to production as '#{new_production_tag}'"
               system "git tag -a -m 'tagging current code for deployment to production' #{new_production_tag} #{promote_to_production_tag}"
             end
 
